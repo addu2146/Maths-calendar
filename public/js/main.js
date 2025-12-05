@@ -31,25 +31,7 @@ document.addEventListener('DOMContentLoaded', () => {
         app.closeModal();
     });
 
-    // Check Answer button
-    const checkAnswerBtn = document.getElementById('checkAnswerBtn');
-    if (checkAnswerBtn) {
-        checkAnswerBtn.addEventListener('click', () => {
-            app.checkAnswer();
-        });
-    }
-
-    // Enter key to submit answer
-    const userAnswerInput = document.getElementById('userAnswer');
-    if (userAnswerInput) {
-        userAnswerInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                app.checkAnswer();
-            }
-        });
-    }
-
-    // AI Genie buttons
+    // AI Genie buttons (Gemini integration)
     document.getElementById('explainBtn').addEventListener('click', () => {
         app.askGemini('explain');
     });

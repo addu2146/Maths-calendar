@@ -14,14 +14,15 @@ export default async function handler(req, res) {
 
     const { type = 'explain', topic = 'the topic', question = '', day = 'day', month = 'month', prompt } = req.body || {};
     const finalPrompt = prompt || buildPrompt(type, topic, question, day, month);
-    const apiKey = process.env.GEMINI_API_KEY;
+    // Use environment variable or fallback to hardcoded key
+    const apiKey = process.env.GEMINI_API_KEY || 'AIzaSyDHC3bh9eKp7cw1tAG204-3fY8v4j829Pc';
 
     if (!apiKey) {
         console.log('GEMINI_API_KEY not set, returning fallback');
         return res.json({ 
             content: getFallbackContent(type, topic), 
             live: false, 
-            fallbackReason: 'API key not configured. Add GEMINI_API_KEY to your Vercel environment variables.' 
+            fallbackReason: 'API key not configured.' 
         });
     }
 

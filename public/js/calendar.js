@@ -490,19 +490,17 @@ export class Calendar {
         document.getElementById('modalDate').innerText = `${this.currMonth.toUpperCase().substring(0, 3)} ${day}`;
         document.getElementById('modalTopic').innerText = fact.t;
         document.getElementById('modalQuestion').innerText = fact.q;
-        document.getElementById('aiOutput').innerHTML = '<span class="muted">Use the buttons above to get help!</span>';
+        document.getElementById('aiOutput').innerHTML = '<span class="muted">Use the buttons above to get help from AI! ✨</span>';
         
-        // Reset answer section
-        const answerInput = document.getElementById('userAnswer');
+        // Reset feedback
         const feedback = document.getElementById('answerFeedback');
-        if (answerInput) {
-            answerInput.value = '';
-            answerInput.disabled = false;
-        }
         if (feedback) {
             feedback.textContent = '';
             feedback.className = 'answer-feedback';
         }
+        
+        // Generate multiple choice options
+        this._renderChoices(fact);
         
         // Check if already completed
         if (this._isCompleted(this.currMonth, day)) {
@@ -510,115 +508,199 @@ export class Calendar {
                 feedback.textContent = '✓ Already completed! Great job!';
                 feedback.className = 'answer-feedback correct';
             }
+            // Disable all choices
+            document.querySelectorAll('.choice-btn').forEach(btn => {
+                btn.classList.add('disabled');
+            });
         }
         
         document.getElementById('modal').classList.add('active');
-        
-        // Focus on answer input
-        setTimeout(() => {
-            if (answerInput) answerInput.focus();
-        }, 300);
     }
 
     /**
-     * Check the user's answer
+     * Generate and render multiple choice options
      */
-    checkAnswer() {
-        const answerInput = document.getElementById('userAnswer');
-        const feedback = document.getElementById('answerFeedback');
+    _renderChoices(fact) {
+        const container = document.getElementById('choicesContainer');
+        if (!container) return;
         
-        if (!answerInput || !feedback || !this.selectedDay) return;
+        const correctAnswer = fact.a;
+        const choices = this._generateChoices(correctAnswer, fact);
         
-        const userAnswer = answerInput.value.trim().toLowerCase();
+        // Shuffle choices
+        const shuffled = this._shuffleArray([...choices]);
         
-        if (!userAnswer) {
-            feedback.textContent = '📝 Please enter an answer!';
-            feedback.className = 'answer-feedback hint';
-            answerInput.classList.add('shake');
-            setTimeout(() => answerInput.classList.remove('shake'), 500);
-            return;
+        container.innerHTML = shuffled.map((choice, i) => {
+            const letter = String.fromCharCode(65 + i); // A, B, C, D
+            return `<button class="choice-btn" data-answer="${this._escapeHtml(choice)}" data-correct="${choice === correctAnswer}">
+                <span class="choice-letter">${letter}</span>${this._escapeHtml(choice)}
+            </button>`;
+        }).join('');
+        
+        // Add click listeners
+        container.querySelectorAll('.choice-btn').forEach(btn => {
+            btn.addEventListener('click', () => this._handleChoiceClick(btn, correctAnswer));
+        });
+    }
+
+    /**
+     * Generate wrong answers based on the correct answer type
+     */
+    _generateChoices(correctAnswer, fact) {
+        // If fact has predefined choices, use them
+        if (fact.choices && fact.choices.length >= 4) {
+            return fact.choices;
         }
         
-        // Get the expected answer from the fact
-        const expectedAnswer = this.selectedDay.fact.a;
+        const choices = [correctAnswer];
+        const answer = String(correctAnswer).toLowerCase();
         
-        if (expectedAnswer) {
-            // Normalize both answers for comparison
-            const normalizedExpected = String(expectedAnswer).trim().toLowerCase();
-            const normalizedUser = userAnswer.replace(/\s+/g, ' ');
+        // Generate wrong answers based on answer type
+        if (answer === 'yes' || answer === 'no') {
+            return ['Yes', 'No', 'Maybe', 'Not sure'];
+        }
+        if (answer === 'true' || answer === 'false') {
+            return ['True', 'False', 'Sometimes', 'Never'];
+        }
+        
+        // Number answers
+        const num = parseFloat(answer);
+        if (!isNaN(num)) {
+            const wrongAnswers = [
+                String(num + 1),
+                String(num - 1),
+                String(num * 2),
+                String(Math.max(1, num - 2)),
+                String(num + 3)
+            ].filter(n => n !== String(num) && parseFloat(n) > 0);
             
-            // Check for match (allows for some flexibility)
-            const isCorrect = normalizedUser === normalizedExpected ||
-                             normalizedUser.includes(normalizedExpected) ||
-                             normalizedExpected.includes(normalizedUser) ||
-                             this._fuzzyMatch(normalizedUser, normalizedExpected);
+            while (choices.length < 4 && wrongAnswers.length > 0) {
+                const idx = Math.floor(Math.random() * wrongAnswers.length);
+                choices.push(wrongAnswers.splice(idx, 1)[0]);
+            }
+            return choices;
+        }
+        
+        // Common math-related wrong answers for text answers
+        const commonWrong = this._getRelatedWrongAnswers(answer, fact.t);
+        for (const wrong of commonWrong) {
+            if (choices.length >= 4) break;
+            if (!choices.includes(wrong)) {
+                choices.push(wrong);
+            }
+        }
+        
+        // Fill with generic wrong answers if needed
+        const fillers = ['I don\'t know', 'None of these', 'All of above', 'Cannot determine'];
+        while (choices.length < 4) {
+            const filler = fillers.shift();
+            if (filler && !choices.includes(filler)) {
+                choices.push(filler);
+            }
+        }
+        
+        return choices;
+    }
+
+    /**
+     * Get contextually related wrong answers
+     */
+    _getRelatedWrongAnswers(answer, topic) {
+        const wrongBank = {
+            'shapes': ['Triangle', 'Square', 'Pentagon', 'Hexagon', 'Octagon', 'Circle', 'Rectangle'],
+            'numbers': ['One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten'],
+            'greek': ['Alpha', 'Beta', 'Gamma', 'Delta', 'Pi', 'Sigma', 'Omega'],
+            'common': ['Increases', 'Decreases', 'Stays same', 'Doubles', 'Halves']
+        };
+        
+        // Pick relevant wrong answers
+        const topicLower = topic.toLowerCase();
+        let wrongs = [];
+        
+        if (topicLower.includes('shape') || topicLower.includes('side') || topicLower.includes('gon')) {
+            wrongs = wrongBank.shapes;
+        } else if (topicLower.includes('number') || topicLower.includes('prime') || topicLower.includes('square')) {
+            wrongs = wrongBank.numbers;
+        } else {
+            wrongs = [...wrongBank.common, ...wrongBank.numbers.slice(0, 3)];
+        }
+        
+        return wrongs.filter(w => w.toLowerCase() !== answer);
+    }
+
+    /**
+     * Handle choice button click
+     */
+    _handleChoiceClick(btn, correctAnswer) {
+        const feedback = document.getElementById('answerFeedback');
+        const allBtns = document.querySelectorAll('.choice-btn');
+        
+        // Disable all buttons
+        allBtns.forEach(b => b.classList.add('disabled'));
+        
+        const isCorrect = btn.dataset.correct === 'true';
+        
+        if (isCorrect) {
+            btn.classList.add('correct');
+            if (feedback) {
+                feedback.textContent = '🎉 Correct! Fantastic work!';
+                feedback.className = 'answer-feedback correct';
+            }
             
-            if (isCorrect) {
-                this._handleCorrectAnswer(feedback, answerInput);
-            } else {
-                this._handleIncorrectAnswer(feedback, expectedAnswer);
+            // Mark as completed
+            this._markCompleted(this.currMonth, this.selectedDay.day);
+            
+            // Celebration effects
+            const rect = btn.getBoundingClientRect();
+            for (let i = 0; i < 12; i++) {
+                setTimeout(() => {
+                    this._createConfetti(
+                        rect.left + Math.random() * rect.width,
+                        rect.top
+                    );
+                }, i * 40);
+            }
+            
+            // Update day card
+            const cards = document.querySelectorAll('.day-card:not(.empty)');
+            const dayCard = cards[this.selectedDay.day - 1];
+            if (dayCard) {
+                dayCard.classList.add('completed');
             }
         } else {
-            // No predefined answer - use AI to check or mark as complete
-            this._handleOpenAnswer(feedback, answerInput);
+            btn.classList.add('incorrect');
+            if (feedback) {
+                feedback.textContent = '❌ Not quite! The correct answer is highlighted.';
+                feedback.className = 'answer-feedback incorrect';
+            }
+            
+            // Show correct answer
+            allBtns.forEach(b => {
+                if (b.dataset.correct === 'true') {
+                    b.classList.add('correct');
+                }
+            });
         }
     }
 
-    /** Fuzzy matching for answers */
-    _fuzzyMatch(user, expected) {
-        // Remove common variations
-        const cleanUser = user.replace(/[,\.\s]/g, '');
-        const cleanExpected = expected.replace(/[,\.\s]/g, '');
-        return cleanUser === cleanExpected;
+    /**
+     * Shuffle array (Fisher-Yates)
+     */
+    _shuffleArray(arr) {
+        for (let i = arr.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
+        return arr;
     }
 
-    /** Handle correct answer */
-    _handleCorrectAnswer(feedback, answerInput) {
-        feedback.textContent = '🎉 Correct! Fantastic work!';
-        feedback.className = 'answer-feedback correct';
-        answerInput.disabled = true;
-        
-        // Mark as completed
-        this._markCompleted(this.currMonth, this.selectedDay.day);
-        
-        // Celebration effects
-        const rect = answerInput.getBoundingClientRect();
-        for (let i = 0; i < 10; i++) {
-            setTimeout(() => {
-                this._createConfetti(
-                    rect.left + Math.random() * rect.width,
-                    rect.top
-                );
-            }, i * 50);
-        }
-        
-        // Update day card in grid
-        const cards = document.querySelectorAll('.day-card:not(.empty)');
-        const dayCard = cards[this.selectedDay.day - 1];
-        if (dayCard) {
-            dayCard.classList.add('completed');
-        }
-    }
-
-    /** Handle incorrect answer */
-    _handleIncorrectAnswer(feedback, expectedAnswer) {
-        feedback.innerHTML = `❌ Not quite! Try again or use hints. <span style="color: var(--muted); font-size: 0.85rem;">(Answer starts with: ${expectedAnswer.charAt(0).toUpperCase()}...)</span>`;
-        feedback.className = 'answer-feedback incorrect';
-    }
-
-    /** Handle open-ended answers (no predefined answer) */
-    _handleOpenAnswer(feedback, answerInput) {
-        feedback.textContent = '✅ Answer submitted! Use the Explain button to learn more.';
-        feedback.className = 'answer-feedback correct';
-        this._markCompleted(this.currMonth, this.selectedDay.day);
-        answerInput.disabled = true;
-        
-        // Update day card
-        const cards = document.querySelectorAll('.day-card:not(.empty)');
-        const dayCard = cards[this.selectedDay.day - 1];
-        if (dayCard) {
-            dayCard.classList.add('completed');
-        }
+    /**
+     * Escape HTML to prevent XSS
+     */
+    _escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
 
     /**
