@@ -2,7 +2,8 @@ import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { DEFAULT_DATA, DEFAULT_MONTHS } from './src/js/data.js';
+// Use the live dataset served from public (kept in sync with the API copy)
+import { DEFAULT_DATA, DEFAULT_MONTHS } from './public/js/data.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -22,17 +23,22 @@ app.post('/api/gemini', async (req, res) => {
     const { type = 'explain', topic = 'the topic', day = 'day', month = 'month', prompt } = req.body || {};
     const finalPrompt = prompt || buildPrompt(type, topic, day, month);
     const apiKey = process.env.GEMINI_API_KEY;
+    const model = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
 
     if (!apiKey) {
         return res.json({ content: 'Set GEMINI_API_KEY to enable live responses.', live: false, fallbackReason: 'API key missing' });
     }
 
     try {
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ contents: [{ parts: [{ text: finalPrompt }] }] })
         });
+        if (!response.ok) {
+            const body = await response.text();
+            return res.json({ content: 'Fallback: Gemini unreachable.', live: false, fallbackReason: `API error ${response.status} ${response.statusText}: ${body.slice(0,180)}` });
+        }
         const data = await response.json();
         const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
         if (text) {
