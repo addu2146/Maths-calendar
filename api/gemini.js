@@ -1,36 +1,103 @@
 export default async function handler(req, res) {
+    // Set CORS headers
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    
+    if (req.method === 'OPTIONS') {
+        return res.status(200).end();
+    }
+    
     if (req.method !== 'POST') {
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
-    const { type = 'explain', topic = 'the topic', day = 'day', month = 'month', prompt } = req.body || {};
-    const finalPrompt = prompt || buildPrompt(type, topic, day, month);
+    const { type = 'explain', topic = 'the topic', question = '', day = 'day', month = 'month', prompt } = req.body || {};
+    const finalPrompt = prompt || buildPrompt(type, topic, question, day, month);
     const apiKey = process.env.GEMINI_API_KEY;
 
     if (!apiKey) {
-        return res.json({ content: 'Set GEMINI_API_KEY to enable live responses.', live: false, fallbackReason: 'API key missing' });
+        console.log('GEMINI_API_KEY not set, returning fallback');
+        return res.json({ 
+            content: getFallbackContent(type, topic), 
+            live: false, 
+            fallbackReason: 'API key not configured. Add GEMINI_API_KEY to your Vercel environment variables.' 
+        });
     }
 
     try {
+        console.log('Calling Gemini API for:', type, topic);
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ contents: [{ parts: [{ text: finalPrompt }] }] })
+            body: JSON.stringify({ 
+                contents: [{ parts: [{ text: finalPrompt }] }],
+                generationConfig: {
+                    temperature: 0.7,
+                    maxOutputTokens: 500
+                }
+            })
         });
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Gemini API error:', response.status, errorText);
+            return res.json({ 
+                content: getFallbackContent(type, topic), 
+                live: false, 
+                fallbackReason: `API error: ${response.status}` 
+            });
+        }
+        
         const data = await response.json();
         const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+        
         if (text) {
             return res.json({ content: text, live: true });
         }
-        return res.json({ content: 'No content returned from Gemini.', live: false, fallbackReason: 'Empty response' });
+        
+        // Check for safety blocks or other issues
+        if (data?.promptFeedback?.blockReason) {
+            console.log('Content blocked:', data.promptFeedback.blockReason);
+            return res.json({ 
+                content: getFallbackContent(type, topic), 
+                live: false, 
+                fallbackReason: 'Content filtered' 
+            });
+        }
+        
+        return res.json({ 
+            content: getFallbackContent(type, topic), 
+            live: false, 
+            fallbackReason: 'Empty response from AI' 
+        });
     } catch (err) {
-        return res.json({ content: `Gemini request failed: ${err.message}`, live: false, fallbackReason: 'Request error' });
+        console.error('Gemini request failed:', err);
+        return res.json({ 
+            content: getFallbackContent(type, topic), 
+            live: false, 
+            fallbackReason: `Request error: ${err.message}` 
+        });
     }
 }
 
-function buildPrompt(type, topic, day, month) {
-    if (String(type).toLowerCase() === 'fact') {
-        return `Share a brief historical or contextual note about the topic "${topic}" (Month ${month}, Day ${day}). Keep it rigorous yet accessible.`;
+function buildPrompt(type, topic, question, day, month) {
+    if (type === 'hint') {
+        return `Give a helpful hint (NOT the answer) for this math question: "${question}" about "${topic}". Be encouraging and guide the student toward the solution without giving it away. Keep it to 2-3 sentences. Make it fun and kid-friendly!`;
     }
-    return `Provide a concise explanation of "${topic}" suitable for advanced high-school students (Day ${day}, Month ${month}). Include one worked example.`;
+    if (type === 'fact') {
+        return `Share a fun, interesting fact about "${topic}" that would excite a young student learning math. Make it engaging and memorable. Keep it to 2-3 sentences.`;
+    }
+    // Default to explain
+    return `Provide a clear, kid-friendly explanation of "${topic}" for the question: "${question}". Use simple language suitable for students. Include one worked example. Keep it under 150 words and make it fun!`;
+}
+
+function getFallbackContent(type, topic) {
+    if (type === 'hint') {
+        return `Here's a hint: Think carefully about what "${topic}" means. Break down the problem step by step, and look for patterns!`;
+    }
+    if (type === 'fact') {
+        return `Fun fact: "${topic}" is used by mathematicians all around the world! Math helps us understand everything from building bridges to launching rockets!`;
+    }
+    return `Let me help you understand "${topic}"! This is an important concept in math. Try breaking it down into smaller pieces and working through examples.`;
 }

@@ -31,6 +31,24 @@ document.addEventListener('DOMContentLoaded', () => {
         app.closeModal();
     });
 
+    // Check Answer button
+    const checkAnswerBtn = document.getElementById('checkAnswerBtn');
+    if (checkAnswerBtn) {
+        checkAnswerBtn.addEventListener('click', () => {
+            app.checkAnswer();
+        });
+    }
+
+    // Enter key to submit answer
+    const userAnswerInput = document.getElementById('userAnswer');
+    if (userAnswerInput) {
+        userAnswerInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                app.checkAnswer();
+            }
+        });
+    }
+
     // AI Genie buttons
     document.getElementById('explainBtn').addEventListener('click', () => {
         app.askGemini('explain');
@@ -40,9 +58,24 @@ document.addEventListener('DOMContentLoaded', () => {
         app.askGemini('fact');
     });
 
+    // Hint button
+    const hintBtn = document.getElementById('hintBtn');
+    if (hintBtn) {
+        hintBtn.addEventListener('click', () => {
+            app.askGemini('hint');
+        });
+    }
+
     // Close modal on overlay click (outside modal content)
     document.getElementById('modal').addEventListener('click', (e) => {
         if (e.target.id === 'modal') {
+            app.closeModal();
+        }
+    });
+
+    // Escape key to close modal
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
             app.closeModal();
         }
     });

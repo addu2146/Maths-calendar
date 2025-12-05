@@ -17,7 +17,125 @@ export class Calendar {
         this._konamiIndex = 0;
         this._clickCount = 0;
         this._partyMode = false;
+        
+        // Progress tracking
+        this._progress = this._loadProgress();
         this._initEasterEggs();
+    }
+
+    /** Load progress from localStorage */
+    _loadProgress() {
+        try {
+            const saved = localStorage.getItem('mathCalendarProgress');
+            if (saved) {
+                return JSON.parse(saved);
+            }
+        } catch (e) {
+            console.warn('Could not load progress:', e);
+        }
+        return { completed: {}, streak: 0, lastDate: null, totalCorrect: 0 };
+    }
+
+    /** Save progress to localStorage */
+    _saveProgress() {
+        try {
+            localStorage.setItem('mathCalendarProgress', JSON.stringify(this._progress));
+        } catch (e) {
+            console.warn('Could not save progress:', e);
+        }
+    }
+
+    /** Mark a day as completed */
+    _markCompleted(month, day) {
+        const key = `${month}-${day}`;
+        if (!this._progress.completed[key]) {
+            this._progress.completed[key] = true;
+            this._progress.totalCorrect++;
+            
+            // Update streak
+            const today = new Date().toDateString();
+            if (this._progress.lastDate !== today) {
+                const yesterday = new Date();
+                yesterday.setDate(yesterday.getDate() - 1);
+                if (this._progress.lastDate === yesterday.toDateString()) {
+                    this._progress.streak++;
+                } else if (this._progress.lastDate !== today) {
+                    this._progress.streak = 1;
+                }
+                this._progress.lastDate = today;
+            }
+            
+            this._saveProgress();
+            this._updateProgressUI();
+            
+            // Update day card visual
+            const cards = document.querySelectorAll('.day-card:not(.empty)');
+            if (cards[day - 1]) {
+                cards[day - 1].classList.add('completed');
+            }
+        }
+    }
+
+    /** Check if a day is completed */
+    _isCompleted(month, day) {
+        return this._progress.completed[`${month}-${day}`] || false;
+    }
+
+    /** Update the progress UI */
+    _updateProgressUI() {
+        const totalDays = this._getTotalDays();
+        const completed = Object.keys(this._progress.completed).length;
+        const percentage = totalDays > 0 ? (completed / totalDays) * 100 : 0;
+        
+        const statsEl = document.getElementById('progressStats');
+        const fillEl = document.getElementById('progressFill');
+        const streakEl = document.getElementById('progressStreak');
+        
+        if (statsEl) statsEl.textContent = `${completed}/${totalDays}`;
+        if (fillEl) fillEl.style.width = `${percentage}%`;
+        if (streakEl) streakEl.textContent = `🔥 Streak: ${this._progress.streak}`;
+        
+        // Celebration for milestones
+        if (completed === 10) {
+            this._showCelebration('🌟 10 Problems Solved!');
+        } else if (completed === 25) {
+            this._showCelebration('🏆 25 Problems! Math Star!');
+        } else if (completed === 50) {
+            this._showCelebration('🎯 50 Problems! Amazing!');
+        } else if (completed === 100) {
+            this._showCelebration('👑 100 Problems! Math Wizard!');
+        }
+    }
+
+    /** Get total days across all months */
+    _getTotalDays() {
+        let total = 0;
+        for (const month of this.months) {
+            if (this.data[month]) {
+                total += this.data[month].days || 0;
+            }
+        }
+        return total;
+    }
+
+    /** Show celebration animation */
+    _showCelebration(text) {
+        const overlay = document.createElement('div');
+        overlay.className = 'celebration-overlay';
+        overlay.innerHTML = `<div class="celebration-text">${text}</div>`;
+        document.body.appendChild(overlay);
+        
+        // Confetti burst
+        for (let i = 0; i < 30; i++) {
+            setTimeout(() => {
+                this._createConfetti(
+                    Math.random() * window.innerWidth,
+                    Math.random() * window.innerHeight
+                );
+            }, i * 50);
+        }
+        
+        setTimeout(() => overlay.remove(), 2000);
     }
 
     /** Replace dataset (useful after fetching from backend) */
@@ -129,9 +247,10 @@ export class Calendar {
         // Day cards with staggered bounce animation
         for (let i = 1; i <= monthData.days; i++) {
             const fact = this.getFactForDay(monthData, i);
+            const isCompleted = this._isCompleted(this.currMonth, i);
 
             const card = document.createElement('div');
-            card.className = 'day-card';
+            card.className = 'day-card' + (isCompleted ? ' completed' : '');
             card.innerHTML = `
                 <div class="day-num">${i}</div>
                 <div class="day-preview">${fact.t}</div>
@@ -164,6 +283,9 @@ export class Calendar {
             
             grid.appendChild(card);
         }
+        
+        // Update progress UI after rendering
+        this._updateProgressUI();
     }
 
     /**
@@ -368,8 +490,135 @@ export class Calendar {
         document.getElementById('modalDate').innerText = `${this.currMonth.toUpperCase().substring(0, 3)} ${day}`;
         document.getElementById('modalTopic').innerText = fact.t;
         document.getElementById('modalQuestion').innerText = fact.q;
-        document.getElementById('aiOutput').innerText = "Select an option to generate an explanation.";
+        document.getElementById('aiOutput').innerHTML = '<span class="muted">Use the buttons above to get help!</span>';
+        
+        // Reset answer section
+        const answerInput = document.getElementById('userAnswer');
+        const feedback = document.getElementById('answerFeedback');
+        if (answerInput) {
+            answerInput.value = '';
+            answerInput.disabled = false;
+        }
+        if (feedback) {
+            feedback.textContent = '';
+            feedback.className = 'answer-feedback';
+        }
+        
+        // Check if already completed
+        if (this._isCompleted(this.currMonth, day)) {
+            if (feedback) {
+                feedback.textContent = '✓ Already completed! Great job!';
+                feedback.className = 'answer-feedback correct';
+            }
+        }
+        
         document.getElementById('modal').classList.add('active');
+        
+        // Focus on answer input
+        setTimeout(() => {
+            if (answerInput) answerInput.focus();
+        }, 300);
+    }
+
+    /**
+     * Check the user's answer
+     */
+    checkAnswer() {
+        const answerInput = document.getElementById('userAnswer');
+        const feedback = document.getElementById('answerFeedback');
+        
+        if (!answerInput || !feedback || !this.selectedDay) return;
+        
+        const userAnswer = answerInput.value.trim().toLowerCase();
+        
+        if (!userAnswer) {
+            feedback.textContent = '📝 Please enter an answer!';
+            feedback.className = 'answer-feedback hint';
+            answerInput.classList.add('shake');
+            setTimeout(() => answerInput.classList.remove('shake'), 500);
+            return;
+        }
+        
+        // Get the expected answer from the fact
+        const expectedAnswer = this.selectedDay.fact.a;
+        
+        if (expectedAnswer) {
+            // Normalize both answers for comparison
+            const normalizedExpected = String(expectedAnswer).trim().toLowerCase();
+            const normalizedUser = userAnswer.replace(/\s+/g, ' ');
+            
+            // Check for match (allows for some flexibility)
+            const isCorrect = normalizedUser === normalizedExpected ||
+                             normalizedUser.includes(normalizedExpected) ||
+                             normalizedExpected.includes(normalizedUser) ||
+                             this._fuzzyMatch(normalizedUser, normalizedExpected);
+            
+            if (isCorrect) {
+                this._handleCorrectAnswer(feedback, answerInput);
+            } else {
+                this._handleIncorrectAnswer(feedback, expectedAnswer);
+            }
+        } else {
+            // No predefined answer - use AI to check or mark as complete
+            this._handleOpenAnswer(feedback, answerInput);
+        }
+    }
+
+    /** Fuzzy matching for answers */
+    _fuzzyMatch(user, expected) {
+        // Remove common variations
+        const cleanUser = user.replace(/[,\.\s]/g, '');
+        const cleanExpected = expected.replace(/[,\.\s]/g, '');
+        return cleanUser === cleanExpected;
+    }
+
+    /** Handle correct answer */
+    _handleCorrectAnswer(feedback, answerInput) {
+        feedback.textContent = '🎉 Correct! Fantastic work!';
+        feedback.className = 'answer-feedback correct';
+        answerInput.disabled = true;
+        
+        // Mark as completed
+        this._markCompleted(this.currMonth, this.selectedDay.day);
+        
+        // Celebration effects
+        const rect = answerInput.getBoundingClientRect();
+        for (let i = 0; i < 10; i++) {
+            setTimeout(() => {
+                this._createConfetti(
+                    rect.left + Math.random() * rect.width,
+                    rect.top
+                );
+            }, i * 50);
+        }
+        
+        // Update day card in grid
+        const cards = document.querySelectorAll('.day-card:not(.empty)');
+        const dayCard = cards[this.selectedDay.day - 1];
+        if (dayCard) {
+            dayCard.classList.add('completed');
+        }
+    }
+
+    /** Handle incorrect answer */
+    _handleIncorrectAnswer(feedback, expectedAnswer) {
+        feedback.innerHTML = `❌ Not quite! Try again or use hints. <span style="color: var(--muted); font-size: 0.85rem;">(Answer starts with: ${expectedAnswer.charAt(0).toUpperCase()}...)</span>`;
+        feedback.className = 'answer-feedback incorrect';
+    }
+
+    /** Handle open-ended answers (no predefined answer) */
+    _handleOpenAnswer(feedback, answerInput) {
+        feedback.textContent = '✅ Answer submitted! Use the Explain button to learn more.';
+        feedback.className = 'answer-feedback correct';
+        this._markCompleted(this.currMonth, this.selectedDay.day);
+        answerInput.disabled = true;
+        
+        // Update day card
+        const cards = document.querySelectorAll('.day-card:not(.empty)');
+        const dayCard = cards[this.selectedDay.day - 1];
+        if (dayCard) {
+            dayCard.classList.add('completed');
+        }
     }
 
     /**
@@ -381,17 +630,18 @@ export class Calendar {
 
     /**
      * Query Gemini API for AI responses
-     * @param {string} type - Type of query: 'explain' or 'fact'
+     * @param {string} type - Type of query: 'explain', 'fact', or 'hint'
      */
     async askGemini(type) {
         const out = document.getElementById('aiOutput');
-        out.innerHTML = "Processing...";
+        out.innerHTML = '<span class="loading">✨ Thinking...</span>';
 
         const m = this.currMonth;
         const d = this.selectedDay.day;
         const topic = this.selectedDay.fact.t;
+        const question = this.selectedDay.fact.q;
 
-        const prompt = this.buildPrompt(type, topic, d, m);
+        const prompt = this.buildPrompt(type, topic, question, d, m);
 
         // Prefer backend proxy when available so keys remain server-side
         if (this.apiBase) {
@@ -399,25 +649,35 @@ export class Calendar {
                 const resp = await fetch(`${this.apiBase}/gemini`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ type, topic, day: d, month: m, prompt })
+                    body: JSON.stringify({ type, topic, question, day: d, month: m, prompt })
                 });
+                
                 if (resp.ok) {
                     const payload = await resp.json();
-                    out.innerText = payload.content || 'No response received.';
-                    if (!payload.live && payload.fallbackReason) {
-                        out.innerHTML = `<strong>Offline mode:</strong> ${payload.content}`;
+                    if (payload.content) {
+                        out.innerHTML = this._formatAIResponse(payload.content, type);
+                        if (!payload.live && payload.fallbackReason) {
+                            out.innerHTML = `<strong>📚 Quick Help:</strong><br>${payload.content}`;
+                        }
+                    } else {
+                        out.innerHTML = '<span class="muted">No response received. Try again!</span>';
                     }
+                    return;
+                } else {
+                    const errorData = await resp.json().catch(() => ({}));
+                    console.warn('Gemini API error:', errorData);
+                    out.innerHTML = this._getFallbackResponse(type, topic);
                     return;
                 }
             } catch (err) {
-                console.warn('Backend Gemini proxy unavailable. Falling back to client key.', err);
+                console.warn('Backend Gemini proxy unavailable:', err);
+                out.innerHTML = this._getFallbackResponse(type, topic);
+                return;
             }
         }
 
         if (!this.apiKey) {
-            setTimeout(() => {
-                out.innerHTML = "<strong>(Demo Mode):</strong> Provide an API key or enable the backend proxy to fetch live explanations. Draft your own 3-4 sentence summary for " + topic + ".";
-            }, 400);
+            out.innerHTML = this._getFallbackResponse(type, topic);
             return;
         }
 
@@ -428,16 +688,40 @@ export class Calendar {
                 body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
             });
             const data = await response.json();
-            out.innerText = data.candidates[0].content.parts[0].text;
+            if (data.candidates && data.candidates[0]?.content?.parts?.[0]?.text) {
+                out.innerHTML = this._formatAIResponse(data.candidates[0].content.parts[0].text, type);
+            } else {
+                out.innerHTML = this._getFallbackResponse(type, topic);
+            }
         } catch (e) {
-            out.innerText = "Oops! The Genie is sleeping (Error connecting to AI).";
+            console.error('Gemini API error:', e);
+            out.innerHTML = this._getFallbackResponse(type, topic);
         }
     }
 
-    buildPrompt(type, topic, day, month) {
-        if (type === 'explain') {
-            return `Provide a concise explanation of "${topic}" suitable for advanced high-school students (Day ${day}, Month ${month}). Include one worked example.`;
+    /** Format AI response with nice styling */
+    _formatAIResponse(text, type) {
+        const icon = type === 'explain' ? '💡' : type === 'hint' ? '🔍' : '📚';
+        const title = type === 'explain' ? 'Explanation' : type === 'hint' ? 'Hint' : 'Context';
+        return `<strong>${icon} ${title}:</strong><br>${text.replace(/\n/g, '<br>')}`;
+    }
+
+    /** Get fallback response when API is unavailable */
+    _getFallbackResponse(type, topic) {
+        if (type === 'hint') {
+            return `<strong>🔍 Hint:</strong><br>Think about the key concepts in "${topic}". Break down the problem into smaller steps!`;
+        } else if (type === 'explain') {
+            return `<strong>💡 Quick Tip:</strong><br>This topic relates to ${topic}. Try searching online for examples or ask your teacher for more details!`;
         }
-        return `Share a brief historical or contextual note about the topic "${topic}" (Month ${month}, Day ${day}). Keep it rigorous yet accessible.`;
+        return `<strong>📚 Info:</strong><br>Learn more about ${topic} - it's a fascinating area of mathematics!`;
+    }
+
+    buildPrompt(type, topic, question, day, month) {
+        if (type === 'explain') {
+            return `Provide a clear, kid-friendly explanation of "${topic}" for the question: "${question}". Use simple language suitable for students. Include one worked example. Keep it under 150 words.`;
+        } else if (type === 'hint') {
+            return `Give a helpful hint (NOT the answer) for this math question: "${question}" about "${topic}". Be encouraging and guide the student toward the solution without giving it away. Keep it to 2-3 sentences.`;
+        }
+        return `Share a fun, interesting fact about "${topic}" that would excite a young student. Make it engaging and memorable. Keep it to 2-3 sentences.`;
     }
 }
