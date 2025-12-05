@@ -1,4 +1,5 @@
-export default async function handler(req, res) {
+// Vercel Serverless Function for Gemini AI
+module.exports = async function handler(req, res) {
     // Set CORS headers
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -12,22 +13,14 @@ export default async function handler(req, res) {
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
-    const { type = 'explain', topic = 'the topic', question = '', day = 'day', month = 'month', prompt } = req.body || {};
-    const finalPrompt = prompt || buildPrompt(type, topic, question, day, month);
-    // Use environment variable or fallback to hardcoded key
-    const apiKey = process.env.GEMINI_API_KEY || 'AIzaSyDHC3bh9eKp7cw1tAG204-3fY8v4j829Pc';
-
-    if (!apiKey) {
-        console.log('GEMINI_API_KEY not set, returning fallback');
-        return res.json({ 
-            content: getFallbackContent(type, topic), 
-            live: false, 
-            fallbackReason: 'API key not configured.' 
-        });
-    }
+    const body = req.body || {};
+    const { type = 'explain', topic = 'the topic', question = '', day = 'day', month = 'month' } = body;
+    const finalPrompt = buildPrompt(type, topic, question, day, month);
+    
+    // Hardcoded API key for simplicity
+    const apiKey = 'AIzaSyDHC3bh9eKp7cw1tAG204-3fY8v4j829Pc';
 
     try {
-        console.log('Calling Gemini API for:', type, topic);
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -43,7 +36,7 @@ export default async function handler(req, res) {
         if (!response.ok) {
             const errorText = await response.text();
             console.error('Gemini API error:', response.status, errorText);
-            return res.json({ 
+            return res.status(200).json({ 
                 content: getFallbackContent(type, topic), 
                 live: false, 
                 fallbackReason: `API error: ${response.status}` 
@@ -54,33 +47,32 @@ export default async function handler(req, res) {
         const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
         
         if (text) {
-            return res.json({ content: text, live: true });
+            return res.status(200).json({ content: text, live: true });
         }
         
         // Check for safety blocks or other issues
         if (data?.promptFeedback?.blockReason) {
-            console.log('Content blocked:', data.promptFeedback.blockReason);
-            return res.json({ 
+            return res.status(200).json({ 
                 content: getFallbackContent(type, topic), 
                 live: false, 
                 fallbackReason: 'Content filtered' 
             });
         }
         
-        return res.json({ 
+        return res.status(200).json({ 
             content: getFallbackContent(type, topic), 
             live: false, 
             fallbackReason: 'Empty response from AI' 
         });
     } catch (err) {
         console.error('Gemini request failed:', err);
-        return res.json({ 
+        return res.status(200).json({ 
             content: getFallbackContent(type, topic), 
             live: false, 
             fallbackReason: `Request error: ${err.message}` 
         });
     }
-}
+};
 
 function buildPrompt(type, topic, question, day, month) {
     if (type === 'hint') {
