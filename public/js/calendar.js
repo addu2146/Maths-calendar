@@ -785,9 +785,11 @@ export class Calendar {
                 if (resp.ok) {
                     const payload = await resp.json();
                     if (payload.content) {
-                        out.innerHTML = this._formatAIResponse(payload.content, type);
+                        const rendered = this._formatAIResponse(payload.content, type);
+                        out.innerHTML = rendered;
                         if (!payload.live && payload.fallbackReason) {
-                            out.innerHTML = `<strong>📚 Quick Help:</strong><br>${payload.content}`;
+                            console.warn('Gemini proxy fallback:', payload.fallbackReason);
+                            out.innerHTML = `${rendered}<div class="muted"><em>Using fallback (${this._escapeHtml(payload.fallbackReason)})</em></div>`;
                         }
                     } else {
                         out.innerHTML = '<span class="muted">No response received. Try again!</span>';

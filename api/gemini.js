@@ -48,7 +48,7 @@ module.exports = async function handler(req, res) {
             return res.status(200).json({ 
                 content: getFallbackContent(type, topic), 
                 live: false, 
-                fallbackReason: `API error: ${response.status}` 
+                fallbackReason: `API error: ${response.status} ${response.statusText} ${errorText?.slice(0,180)}` 
             });
         }
         
