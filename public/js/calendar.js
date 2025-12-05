@@ -11,7 +11,13 @@ export class Calendar {
         this.selectedDay = null;
         this.apiKey = apiKey;
         this.apiBase = apiBase;
-        this._sparkleGlyphs = ['•', '·', '∙'];
+        this._sparkleGlyphs = ['✨', '⭐', '💫', '🌟', '✦'];
+        this._confettiEmojis = ['🎉', '🎊', '🥳', '🎈', '🎁', '⭐', '💖', '🌈', '🦄', '🍭'];
+        this._konamiCode = ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight', 'b', 'a'];
+        this._konamiIndex = 0;
+        this._clickCount = 0;
+        this._partyMode = false;
+        this._initEasterEggs();
     }
 
     /** Replace dataset (useful after fetching from backend) */
@@ -120,7 +126,7 @@ export class Calendar {
             grid.appendChild(emptyCard);
         }
 
-        // Day cards
+        // Day cards with staggered bounce animation
         for (let i = 1; i <= monthData.days; i++) {
             const fact = this.getFactForDay(monthData, i);
 
@@ -130,10 +136,32 @@ export class Calendar {
                 <div class="day-num">${i}</div>
                 <div class="day-preview">${fact.t}</div>
             `;
+            
+            // Staggered bounce entrance animation
+            card.style.opacity = '0';
+            setTimeout(() => {
+                card.style.opacity = '1';
+                card.classList.add('bounce');
+                setTimeout(() => card.classList.remove('bounce'), 600);
+            }, (i + monthData.offset) * 30);
+            
             card.addEventListener('click', (e) => {
                 this.createSparkle(e.clientX, e.clientY);
+                card.classList.add('wiggle');
+                setTimeout(() => card.classList.remove('wiggle'), 500);
                 this.openModal(i, fact);
             });
+            
+            // Fun hover sound effect (visual feedback)
+            card.addEventListener('mouseenter', () => {
+                if (this._partyMode) {
+                    card.classList.add('pulse-glow');
+                }
+            });
+            card.addEventListener('mouseleave', () => {
+                card.classList.remove('pulse-glow');
+            });
+            
             grid.appendChild(card);
         }
     }
@@ -167,13 +195,167 @@ export class Calendar {
      * @param {number} y - Y coordinate
      */
     createSparkle(x, y) {
-        const s = document.createElement('div');
-        s.className = 'sparkle';
-        s.innerText = this._sparkleGlyphs[Math.floor(Math.random() * this._sparkleGlyphs.length)];
-        s.style.left = x + 'px';
-        s.style.top = y + 'px';
-        document.body.appendChild(s);
-        setTimeout(() => s.remove(), 800);
+        // Create multiple sparkles for more fun!
+        const count = this._partyMode ? 8 : 3;
+        for (let i = 0; i < count; i++) {
+            setTimeout(() => {
+                const s = document.createElement('div');
+                s.className = 'sparkle';
+                s.innerText = this._sparkleGlyphs[Math.floor(Math.random() * this._sparkleGlyphs.length)];
+                s.style.left = (x + (Math.random() - 0.5) * 50) + 'px';
+                s.style.top = (y + (Math.random() - 0.5) * 50) + 'px';
+                document.body.appendChild(s);
+                setTimeout(() => s.remove(), 800);
+            }, i * 50);
+        }
+        
+        // Confetti explosion!
+        this._createConfetti(x, y);
+        
+        // Track clicks for secret
+        this._clickCount++;
+        if (this._clickCount === 10) {
+            this._showFloatingEmoji(x, y, '🎯');
+        } else if (this._clickCount === 50) {
+            this._showSecretMessage('🏆 Super Explorer!', 'You clicked 50 times! You really love math!');
+        } else if (this._clickCount === 100) {
+            this._activatePartyMode();
+        }
+    }
+    
+    /**
+     * Create confetti explosion
+     */
+    _createConfetti(x, y) {
+        const count = this._partyMode ? 15 : 5;
+        for (let i = 0; i < count; i++) {
+            setTimeout(() => {
+                const c = document.createElement('div');
+                c.className = 'confetti';
+                c.innerText = this._confettiEmojis[Math.floor(Math.random() * this._confettiEmojis.length)];
+                c.style.left = (x + (Math.random() - 0.5) * 100) + 'px';
+                c.style.top = y + 'px';
+                c.style.animationDuration = (1.5 + Math.random()) + 's';
+                document.body.appendChild(c);
+                setTimeout(() => c.remove(), 2000);
+            }, i * 30);
+        }
+    }
+    
+    /**
+     * Show floating emoji
+     */
+    _showFloatingEmoji(x, y, emoji) {
+        const e = document.createElement('div');
+        e.className = 'floating-emoji';
+        e.innerText = emoji;
+        e.style.left = x + 'px';
+        e.style.top = y + 'px';
+        document.body.appendChild(e);
+        setTimeout(() => e.remove(), 3000);
+    }
+    
+    /**
+     * Initialize easter eggs
+     */
+    _initEasterEggs() {
+        // Konami code listener
+        document.addEventListener('keydown', (e) => this._checkKonamiCode(e));
+        
+        // Triple-click title for rainbow mode
+        document.addEventListener('DOMContentLoaded', () => {
+            const title = document.querySelector('.hero-title');
+            if (title) {
+                let clicks = 0;
+                title.addEventListener('click', () => {
+                    clicks++;
+                    title.classList.add('wiggle');
+                    setTimeout(() => title.classList.remove('wiggle'), 500);
+                    if (clicks >= 3) {
+                        document.body.classList.toggle('rainbow-mode');
+                        this._showFloatingEmoji(window.innerWidth / 2, window.innerHeight / 2, '🌈');
+                        clicks = 0;
+                    }
+                    setTimeout(() => clicks = 0, 1000);
+                });
+            }
+        });
+    }
+    
+    /**
+     * Check for Konami code input
+     */
+    _checkKonamiCode(e) {
+        const key = e.key;
+        if (key === this._konamiCode[this._konamiIndex]) {
+            this._konamiIndex++;
+            if (this._konamiIndex === this._konamiCode.length) {
+                this._activateDiscoMode();
+                this._konamiIndex = 0;
+            }
+        } else {
+            this._konamiIndex = 0;
+        }
+    }
+    
+    /**
+     * Activate disco mode easter egg
+     */
+    _activateDiscoMode() {
+        document.body.classList.add('disco-mode');
+        this._showSecretMessage('🕺 DISCO MODE! 💃', 'You found the secret Konami code!');
+        
+        // Spawn lots of emojis
+        for (let i = 0; i < 20; i++) {
+            setTimeout(() => {
+                this._showFloatingEmoji(
+                    Math.random() * window.innerWidth,
+                    window.innerHeight,
+                    this._confettiEmojis[Math.floor(Math.random() * this._confettiEmojis.length)]
+                );
+            }, i * 100);
+        }
+        
+        setTimeout(() => document.body.classList.remove('disco-mode'), 5000);
+    }
+    
+    /**
+     * Activate party mode
+     */
+    _activatePartyMode() {
+        this._partyMode = true;
+        document.body.classList.add('party-mode');
+        this._showSecretMessage('🎉 PARTY MODE UNLOCKED! 🎉', '100 clicks! You are a math champion!');
+        
+        // Make all day cards bounce
+        document.querySelectorAll('.day-card').forEach((card, i) => {
+            setTimeout(() => card.classList.add('bounce'), i * 50);
+        });
+    }
+    
+    /**
+     * Show secret message popup
+     */
+    _showSecretMessage(title, message) {
+        const existing = document.querySelector('.secret-message');
+        if (existing) existing.remove();
+        
+        const popup = document.createElement('div');
+        popup.className = 'secret-message';
+        popup.innerHTML = `<h2>${title}</h2><p>${message}</p><p style="margin-top: 1rem; font-size: 0.9rem; opacity: 0.7;">Click anywhere to close</p>`;
+        document.body.appendChild(popup);
+        
+        popup.addEventListener('click', () => {
+            popup.style.animation = 'popIn 0.3s ease reverse';
+            setTimeout(() => popup.remove(), 300);
+        });
+        
+        setTimeout(() => {
+            if (popup.parentNode) {
+                popup.style.animation = 'popIn 0.3s ease reverse';
+                setTimeout(() => popup.remove(), 300);
+            }
+        }, 5000);
     }
 
     /**

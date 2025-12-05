@@ -18,7 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize background shapes
     app.init();
 
-    // Attempt to hydrate data from backend (Spring Boot) if available
+    // Attempt to hydrate data from backend if available
     hydrateFromBackend();
 
     // Start button - transition from intro to calendar

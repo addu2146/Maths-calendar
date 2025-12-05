@@ -104,11 +104,63 @@ body {
     transition: opacity 0.7s ease, transform 0.7s ease;
 }
 
+.welcome-mascot {
+    font-size: 4rem;
+    animation: mascotBounce 2s ease-in-out infinite;
+    margin-bottom: 1rem;
+}
+
+@keyframes mascotBounce {
+    0%, 100% { transform: translateY(0) rotate(0deg); }
+    25% { transform: translateY(-10px) rotate(-5deg); }
+    75% { transform: translateY(-10px) rotate(5deg); }
+}
+
+.hint-text {
+    margin-top: 1.5rem;
+    font-size: 0.9rem;
+    color: var(--muted);
+    opacity: 0.8;
+    animation: fadeInUp 1s ease 0.5s both;
+}
+
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 0.8; transform: translateY(0); }
+}
+
+/* --- ACHIEVEMENT BADGE --- */
+.achievement-badge {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    padding: 12px 20px;
+    border-radius: 50px;
+    font-weight: bold;
+    z-index: 1000;
+    opacity: 0;
+    transform: translateX(100px);
+    transition: all 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    box-shadow: 0 10px 30px rgba(240, 147, 251, 0.4);
+}
+
+.achievement-badge.show {
+    opacity: 1;
+    transform: translateX(0);
+}
+
  .hero-title {
     font-size: 3rem;
     font-weight: 700;
     letter-spacing: -0.5px;
     color: var(--text-light);
+    cursor: pointer;
+    transition: transform 0.3s ease;
+ }
+ 
+ .hero-title:hover {
+    transform: scale(1.02);
  }
 
 .hero-subtitle {
@@ -464,6 +516,155 @@ body {
     0% { transform: scale(0) rotate(0deg); opacity: 1; }
     50% { opacity: 1; }
     100% { transform: scale(1.5) rotate(180deg); opacity: 0; top: -50px; }
+}
+
+/* --- CONFETTI --- */
+.confetti {
+    position: fixed;
+    pointer-events: none;
+    z-index: 9999;
+    font-size: 1.5rem;
+    animation: confettiFall 2s ease-out forwards;
+}
+
+@keyframes confettiFall {
+    0% { transform: translateY(0) rotate(0deg) scale(1); opacity: 1; }
+    100% { transform: translateY(400px) rotate(720deg) scale(0); opacity: 0; }
+}
+
+/* --- BOUNCY DAY CARD --- */
+.day-card.bounce {
+    animation: bounceIn 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+@keyframes bounceIn {
+    0% { transform: scale(0.3); opacity: 0; }
+    50% { transform: scale(1.1); }
+    70% { transform: scale(0.9); }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+/* --- WIGGLE ANIMATION --- */
+.wiggle {
+    animation: wiggle 0.5s ease-in-out;
+}
+
+@keyframes wiggle {
+    0%, 100% { transform: rotate(0deg); }
+    25% { transform: rotate(-10deg); }
+    75% { transform: rotate(10deg); }
+}
+
+/* --- RAINBOW TEXT EASTER EGG --- */
+.rainbow-mode .hero-title,
+.rainbow-mode .month-title {
+    background: linear-gradient(90deg, #ff0000, #ff7f00, #ffff00, #00ff00, #0000ff, #4b0082, #9400d3);
+    background-size: 400% 100%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: rainbowText 3s linear infinite;
+}
+
+@keyframes rainbowText {
+    0% { background-position: 0% 50%; }
+    100% { background-position: 400% 50%; }
+}
+
+/* --- PULSE GLOW --- */
+.pulse-glow {
+    animation: pulseGlow 1.5s ease-in-out infinite;
+}
+
+@keyframes pulseGlow {
+    0%, 100% { box-shadow: 0 0 5px rgba(255, 255, 255, 0.3); }
+    50% { box-shadow: 0 0 25px rgba(255, 255, 255, 0.8), 0 0 50px rgba(51, 88, 212, 0.5); }
+}
+
+/* --- FLOATING EMOJI --- */
+.floating-emoji {
+    position: fixed;
+    pointer-events: none;
+    z-index: 9998;
+    font-size: 2rem;
+    animation: floatEmoji 3s ease-out forwards;
+}
+
+@keyframes floatEmoji {
+    0% { transform: translateY(0) scale(1); opacity: 1; }
+    100% { transform: translateY(-200px) scale(1.5); opacity: 0; }
+}
+
+/* --- DISCO MODE --- */
+.disco-mode {
+    animation: discoBackground 0.5s linear infinite;
+}
+
+@keyframes discoBackground {
+    0% { filter: hue-rotate(0deg); }
+    100% { filter: hue-rotate(360deg); }
+}
+
+/* --- SHAKE ANIMATION --- */
+.shake {
+    animation: shake 0.5s ease-in-out;
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+    20%, 40%, 60%, 80% { transform: translateX(5px); }
+}
+
+/* --- SPIN ANIMATION --- */
+.spin {
+    animation: spin 1s ease-in-out;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* --- PARTY POPPER --- */
+.party-mode .day-card:hover {
+    animation: partyPop 0.3s ease;
+}
+
+@keyframes partyPop {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.2) rotate(5deg); }
+    100% { transform: scale(1.05) rotate(0deg); }
+}
+
+/* --- SECRET MESSAGE --- */
+.secret-message {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 2rem 3rem;
+    border-radius: 20px;
+    z-index: 10000;
+    text-align: center;
+    animation: popIn 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.secret-message h2 {
+    font-size: 2rem;
+    margin-bottom: 1rem;
+}
+
+.secret-message p {
+    font-size: 1.2rem;
+    opacity: 0.9;
+}
+
+@keyframes popIn {
+    0% { transform: translate(-50%, -50%) scale(0); opacity: 0; }
+    100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
 }
 
 /* --- RESPONSIVE DESIGN --- */
