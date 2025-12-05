@@ -791,7 +791,7 @@ export class Calendar {
                             : '';
                         out.innerHTML = `${rendered}${fallbackNote}`;
                         if (!payload.live && payload.fallbackReason) {
-                            console.warn('Gemini proxy fallback:', payload.fallbackReason);
+                            console.warn('AI proxy fallback:', payload.fallbackReason);
                         }
                     } else {
                         out.innerHTML = '<span class="muted">No response received. Try again!</span>';
@@ -799,12 +799,12 @@ export class Calendar {
                     return;
                 } else {
                     const errorData = await resp.json().catch(() => ({}));
-                    console.warn('Gemini API error:', errorData);
+                    console.warn('AI API error:', errorData);
                     out.innerHTML = this._getFallbackResponse(type, topic);
                     return;
                 }
             } catch (err) {
-                console.warn('Backend Gemini proxy unavailable:', err);
+                console.warn('Backend AI proxy unavailable:', err);
                 out.innerHTML = this._getFallbackResponse(type, topic);
                 return;
             }
@@ -815,22 +815,8 @@ export class Calendar {
             return;
         }
 
-        try {
-            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${this.apiKey}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-            });
-            const data = await response.json();
-            if (data.candidates && data.candidates[0]?.content?.parts?.[0]?.text) {
-                out.innerHTML = this._formatAIResponse(data.candidates[0].content.parts[0].text, type);
-            } else {
-                out.innerHTML = this._getFallbackResponse(type, topic);
-            }
-        } catch (e) {
-            console.error('Gemini API error:', e);
-            out.innerHTML = this._getFallbackResponse(type, topic);
-        }
+        // No direct client-side AI calls; rely on backend proxy
+        out.innerHTML = this._getFallbackResponse(type, topic);
     }
 
     /** Format AI response with nice styling */

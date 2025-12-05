@@ -22,31 +22,36 @@ app.get('/api/months', (req, res) => {
 app.post('/api/gemini', async (req, res) => {
     const { type = 'explain', topic = 'the topic', day = 'day', month = 'month', prompt } = req.body || {};
     const finalPrompt = prompt || buildPrompt(type, topic, day, month);
-    const apiKey = process.env.GEMINI_API_KEY;
-    const model = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
+    const apiKey = process.env.GROQ_API_KEY;
+    const model = process.env.GROQ_MODEL || 'gpt-oss-20b';
 
     if (!apiKey) {
-        return res.json({ content: 'Set GEMINI_API_KEY to enable live responses.', live: false, fallbackReason: 'API key missing' });
+        return res.json({ content: 'Set GROQ_API_KEY to enable live responses.', live: false, fallbackReason: 'API key missing' });
     }
 
     try {
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+        const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ contents: [{ parts: [{ text: finalPrompt }] }] })
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+            body: JSON.stringify({
+                model,
+                messages: [{ role: 'user', content: finalPrompt }],
+                temperature: 0.7,
+                max_tokens: 500
+            })
         });
         if (!response.ok) {
             const body = await response.text();
-            return res.json({ content: 'Fallback: Gemini unreachable.', live: false, fallbackReason: `API error ${response.status} ${response.statusText}: ${body.slice(0,180)}` });
+            return res.json({ content: 'Fallback: AI unreachable.', live: false, fallbackReason: `API error ${response.status} ${response.statusText}: ${body.slice(0,180)}` });
         }
         const data = await response.json();
-        const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+        const text = data?.choices?.[0]?.message?.content;
         if (text) {
             return res.json({ content: text, live: true });
         }
-        return res.json({ content: 'No content returned from Gemini.', live: false, fallbackReason: 'Empty response' });
+        return res.json({ content: 'No content returned from AI.', live: false, fallbackReason: 'Empty response' });
     } catch (err) {
-        return res.json({ content: `Gemini request failed: ${err.message}`, live: false, fallbackReason: 'Request error' });
+        return res.json({ content: `AI request failed: ${err.message}`, live: false, fallbackReason: 'Request error' });
     }
 });
 

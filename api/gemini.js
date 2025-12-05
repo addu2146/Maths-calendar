@@ -1,4 +1,4 @@
-// Vercel Serverless Function for Gemini AI
+// Vercel Serverless Function for AI responses (Groq)
 module.exports = async function handler(req, res) {
     // Set CORS headers
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -17,64 +17,54 @@ module.exports = async function handler(req, res) {
     const { type = 'explain', topic = 'the topic', question = '', day = 'day', month = 'month' } = body;
     const finalPrompt = buildPrompt(type, topic, question, day, month);
 
-    // Prefer env var; fall back to legacy key for local demo
-    const apiKey = process.env.GEMINI_API_KEY || 'AIzaSyDHC3bh9eKp7cw1tAG204-3fY8v4j829Pc';
-    const model = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
+    const groqKey = process.env.GROQ_API_KEY;
+    const groqModel = process.env.GROQ_MODEL || 'gpt-oss-20b';
 
-    if (!apiKey) {
+    if (!groqKey) {
         return res.status(200).json({
             content: getFallbackContent(type, topic),
             live: false,
-            fallbackReason: 'Missing GEMINI_API_KEY'
+            fallbackReason: 'Missing GROQ_API_KEY'
         });
     }
 
     try {
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+        const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                contents: [{ parts: [{ text: finalPrompt }] }],
-                generationConfig: {
-                    temperature: 0.7,
-                    maxOutputTokens: 500
-                }
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${groqKey}`
+            },
+            body: JSON.stringify({
+                model: groqModel,
+                messages: [{ role: 'user', content: finalPrompt }],
+                temperature: 0.7,
+                max_tokens: 500
             })
         });
-        
+
         if (!response.ok) {
             const errorText = await response.text();
-            console.error('Gemini API error:', response.status, errorText);
-            return res.status(200).json({ 
-                content: getFallbackContent(type, topic), 
-                live: false, 
-                fallbackReason: `API error: ${response.status} ${response.statusText} ${errorText?.slice(0,180)}` 
+            console.error('Groq API error:', response.status, errorText);
+            return res.status(200).json({
+                content: getFallbackContent(type, topic),
+                live: false,
+                fallbackReason: `API error: ${response.status} ${response.statusText} ${errorText?.slice(0,180)}`
             });
         }
-        
+
         const data = await response.json();
-        const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-        
+        const text = data?.choices?.[0]?.message?.content;
         if (text) {
             return res.status(200).json({ content: text, live: true });
         }
-        
-        // Check for safety blocks or other issues
-        if (data?.promptFeedback?.blockReason) {
-            return res.status(200).json({ 
-                content: getFallbackContent(type, topic), 
-                live: false, 
-                fallbackReason: 'Content filtered' 
-            });
-        }
-        
-        return res.status(200).json({ 
-            content: getFallbackContent(type, topic), 
-            live: false, 
-            fallbackReason: 'Empty response from AI' 
+        return res.status(200).json({
+            content: getFallbackContent(type, topic),
+            live: false,
+            fallbackReason: 'Empty response'
         });
     } catch (err) {
-        console.error('Gemini request failed:', err);
+        console.error('AI request failed:', err);
         return res.status(200).json({ 
             content: getFallbackContent(type, topic), 
             live: false, 

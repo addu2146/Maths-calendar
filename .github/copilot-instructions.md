@@ -1,11 +1,11 @@
 # Maths Calendar – AI Helper Notes
 
-- **What this is**: Static-ish vanilla JS/HTML/CSS app served from `public/`, with Vercel serverless functions in `api/` for data (`months`) and Gemini AI proxy. No bundler/build step.
+- **What this is**: Static-ish vanilla JS/HTML/CSS app served from `public/`, with Vercel serverless functions in `api/` for data (`months`) and an AI proxy (Groq/OpenAI-compatible). No bundler/build step.
 - **Run locally**: `npm install` then `npm start` (runs `server.js`, serves `public/`). Directly opening `public/index.html` also works for static use. No tests configured.
 - **Deploy shape**: `vercel.json` routes `/api/*` to Node functions and everything else to `/public/*`. `builds` uses `@vercel/static` + `@vercel/node` (runtime pinned to nodejs18.x for fetch). Keep assets in `public/` in sync; `src/` is an older copy not used by Vercel routes.
 
 - **Key front-end files (active)**: `public/js/main.js` (bootstraps Calendar, hooks UI, hydrates from /api/months), `public/js/calendar.js` (UI logic, MCQ flow, progress tracking, animations, Gemini calls), `public/js/data.js` (bundled month data), `public/css/styles.css` (glassmorphism UI, responsive, day-card/MCQ styling), `public/index.html` (entry shell).
-- **Serverless/API files**: `api/months.js` serves `{ months, data }` with DEFAULT_DATA; keep in sync with `public/js/data.js` when adding content. `api/gemini.js` proxies Gemini; uses `process.env.GEMINI_API_KEY` (fallback hardcoded demo), `process.env.GEMINI_MODEL` default `gemini-1.5-flash`; returns `{content, live, fallbackReason}` on error.
+- **Serverless/API files**: `api/months.js` serves `{ months, data }` with DEFAULT_DATA; keep in sync with `public/js/data.js` when adding content. `api/gemini.js` proxies Groq (OpenAI-compatible); uses `process.env.GROQ_API_KEY` (and optional `GROQ_MODEL`, default `gpt-oss-20b`); returns `{content, live, fallbackReason}` on error.
 - **AI UX**: Front-end `askGemini` hits `/api/gemini`; on fallback, UI shows the reason. Keep responses concise/kid-friendly (<150 words). Avoid exposing keys client-side; prefer proxy.
 - **MCQ logic**: `calendar.js` renders choices via `_generateChoices`; prefers curated `fact.choices`, otherwise contextual pools (yes/no, true/false, numeric neighbors, shapes/number words/math symbols). Correctness is case-insensitive. Preserve this behavior when editing facts/choices.
 - **Data shape**: Each month object has `{ name, math, quote, bg, offset, days, facts: [{ t, q, a, choices? }] }`. Facts in API and public data should match. `offset` is weekday of 1st (0=Sun).
