@@ -1,0 +1,30 @@
+{
+  "name": "maths-calendar",
+  "version": "1.0.0",
+  "description": "An interactive mathematical calendar featuring daily facts, concepts, and AI-powered explanations for students.",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "dev": "node server.js",
+    "start": "node server.js",
+    "build": "echo 'Static assets served by Express. No build step needed.'",
+    "lint": "echo 'Add ESLint for linting'"
+  },
+  "keywords": [
+    "mathematics",
+    "calendar",
+    "education",
+    "interactive",
+    "learning"
+  ],
+  "author": "Junior Ramanujan Maths Club",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/addu2146/Maths-calendar.git"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2"
+  }
+}

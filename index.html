@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mathematical Calendar 2025 • Junior Ramanujan Maths Club</title>
+    <link rel="stylesheet" href="src/css/styles.css">
+</head>
+<body>
+    <div class="background-shapes" id="bgShapes"></div>
+
+    <section class="intro-screen glass-panel" id="introScreen">
+        <h1 class="hero-title">Mathematical Calendar 2025</h1>
+        <p class="hero-subtitle">Explorations from the Junior Ramanujan Maths Club</p>
+        <div class="intro-quote">
+            <p>"Mathematics is not about numbers, equations, computations, or algorithms: it is about understanding."</p>
+        </div>
+        <button class="btn-primary" id="startBtn">Start Exploring</button>
+    </section>
+
+    <!-- Main App -->
+    <main class="app-container hidden" id="appMain">
+        <!-- Navigation -->
+        <nav class="nav-bar glass-panel" id="monthNav">
+            <!-- JS will populate -->
+        </nav>
+
+        <!-- Calendar Header -->
+        <div class="header-card glass-panel" id="calHeader">
+            <div class="mandala-bg"></div>
+            <h2 id="monthTitle" class="month-title">Month Name</h2>
+            <div class="meta-chip">
+                <span id="monthMathematician">Mathematician Name</span>
+            </div>
+            <p id="monthQuote" class="month-quote">"Quote"</p>
+        </div>
+
+        <!-- Grid -->
+        <div class="calendar-grid glass-panel" id="calGrid">
+            <!-- JS will populate -->
+        </div>
+    </main>
+
+    <!-- Modal -->
+    <div class="modal-overlay" id="modal">
+        <div class="modal-content">
+            <button class="close-btn" id="closeBtn" aria-label="Close dialog">✕</button>
+            <div class="modal-badge" id="modalDate">JAN 1</div>
+
+            <h2 class="modal-title">Problem of the Day</h2>
+
+            <div class="fact-box">
+                <h3 id="modalTopic" class="fact-title">Topic</h3>
+                <p id="modalQuestion" class="fact-question">Question?</p>
+            </div>
+
+            <div class="ai-buttons">
+                <button class="btn-secondary" id="explainBtn">Explain Concept</button>
+                <button class="btn-secondary" id="factBtn">Share Context</button>
+            </div>
+
+            <div class="ai-response" id="aiOutput">
+                <span class="muted">Use the buttons above to request an explanation.</span>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="src/js/main.js"></script>
+</body>
+</html>
