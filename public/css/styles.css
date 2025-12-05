@@ -358,6 +358,14 @@ body {
     border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
+.day-card.empty {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    cursor: default;
+    pointer-events: none;
+}
+
 .day-card:hover:not(.empty) {
     transform: translateY(-6px) scale(1.03);
     background: rgba(255, 255, 255, 0.12);
