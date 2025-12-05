@@ -525,6 +525,7 @@ export class Calendar {
         if (!container) return;
         
         const correctAnswer = fact.a;
+        const normalizedCorrect = this._normalizeAnswer(correctAnswer);
         const choices = this._generateChoices(correctAnswer, fact);
         
         // Shuffle choices
@@ -532,7 +533,8 @@ export class Calendar {
         
         container.innerHTML = shuffled.map((choice, i) => {
             const letter = String.fromCharCode(65 + i); // A, B, C, D
-            return `<button class="choice-btn" data-answer="${this._escapeHtml(choice)}" data-correct="${choice === correctAnswer}">
+            const isCorrect = this._normalizeAnswer(choice) === normalizedCorrect;
+            return `<button class="choice-btn" data-answer="${this._escapeHtml(choice)}" data-correct="${isCorrect}">
                 <span class="choice-letter">${letter}</span>${this._escapeHtml(choice)}
             </button>`;
         }).join('');
@@ -547,85 +549,131 @@ export class Calendar {
      * Generate wrong answers based on the correct answer type
      */
     _generateChoices(correctAnswer, fact) {
-        // If fact has predefined choices, use them
-        if (fact.choices && fact.choices.length >= 4) {
-            return fact.choices;
+        // Prefer curated options when provided
+        if (fact.choices && fact.choices.length) {
+            return this._fillChoices(correctAnswer, fact.choices);
         }
-        
-        const choices = [correctAnswer];
-        const answer = String(correctAnswer).toLowerCase();
-        
-        // Generate wrong answers based on answer type
-        if (answer === 'yes' || answer === 'no') {
-            return ['Yes', 'No', 'Maybe', 'Not sure'];
+
+        const normalized = this._normalizeAnswer(correctAnswer);
+
+        // Yes / No patterns
+        if (this._isYesNo(normalized)) {
+            return this._buildFromPool(correctAnswer, ['Yes', 'No', 'Maybe', 'Not sure']);
         }
-        if (answer === 'true' || answer === 'false') {
-            return ['True', 'False', 'Sometimes', 'Never'];
+
+        // True / False patterns
+        if (this._isTrueFalse(normalized)) {
+            return this._buildFromPool(correctAnswer, ['True', 'False', 'Sometimes', 'Depends']);
         }
-        
-        // Number answers
-        const num = parseFloat(answer);
-        if (!isNaN(num)) {
-            const wrongAnswers = [
-                String(num + 1),
-                String(num - 1),
-                String(num * 2),
-                String(Math.max(1, num - 2)),
-                String(num + 3)
-            ].filter(n => n !== String(num) && parseFloat(n) > 0);
-            
-            while (choices.length < 4 && wrongAnswers.length > 0) {
-                const idx = Math.floor(Math.random() * wrongAnswers.length);
-                choices.push(wrongAnswers.splice(idx, 1)[0]);
-            }
-            return choices;
+
+        // Numeric answers
+        const num = this._toNumber(normalized);
+        if (num !== null) {
+            return this._numericChoices(num, correctAnswer);
         }
-        
-        // Common math-related wrong answers for text answers
-        const commonWrong = this._getRelatedWrongAnswers(answer, fact.t);
-        for (const wrong of commonWrong) {
-            if (choices.length >= 4) break;
-            if (!choices.includes(wrong)) {
-                choices.push(wrong);
-            }
-        }
-        
-        // Fill with generic wrong answers if needed
-        const fillers = ['I don\'t know', 'None of these', 'All of above', 'Cannot determine'];
-        while (choices.length < 4) {
-            const filler = fillers.shift();
-            if (filler && !choices.includes(filler)) {
-                choices.push(filler);
-            }
-        }
-        
-        return choices;
+
+        // Contextual pool for text answers
+        const pool = this._relatedPool(normalized, fact.t, fact.q);
+        return this._fillChoices(correctAnswer, pool);
     }
 
-    /**
-     * Get contextually related wrong answers
-     */
-    _getRelatedWrongAnswers(answer, topic) {
-        const wrongBank = {
-            'shapes': ['Triangle', 'Square', 'Pentagon', 'Hexagon', 'Octagon', 'Circle', 'Rectangle'],
-            'numbers': ['One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten'],
-            'greek': ['Alpha', 'Beta', 'Gamma', 'Delta', 'Pi', 'Sigma', 'Omega'],
-            'common': ['Increases', 'Decreases', 'Stays same', 'Doubles', 'Halves']
-        };
-        
-        // Pick relevant wrong answers
-        const topicLower = topic.toLowerCase();
-        let wrongs = [];
-        
-        if (topicLower.includes('shape') || topicLower.includes('side') || topicLower.includes('gon')) {
-            wrongs = wrongBank.shapes;
-        } else if (topicLower.includes('number') || topicLower.includes('prime') || topicLower.includes('square')) {
-            wrongs = wrongBank.numbers;
-        } else {
-            wrongs = [...wrongBank.common, ...wrongBank.numbers.slice(0, 3)];
+    _isYesNo(answer) {
+        return answer === 'yes' || answer === 'no';
+    }
+
+    _isTrueFalse(answer) {
+        return answer === 'true' || answer === 'false';
+    }
+
+    _normalizeAnswer(ans) {
+        return String(ans || '').trim().toLowerCase();
+    }
+
+    _toNumber(answer) {
+        // Handles plain numbers and simple fractions like 22/7
+        if (/^[-+]?[0-9]*\.?[0-9]+$/.test(answer)) {
+            return parseFloat(answer);
         }
-        
-        return wrongs.filter(w => w.toLowerCase() !== answer);
+        if (/^[-+]?[0-9]+\/[0-9]+$/.test(answer)) {
+            const [n, d] = answer.split('/').map(Number);
+            if (d !== 0) return n / d;
+        }
+        return null;
+    }
+
+    _buildFromPool(correctAnswer, pool) {
+        return this._fillChoices(correctAnswer, pool);
+    }
+
+    _numericChoices(num, correctAnswer) {
+        const candidates = new Set();
+        candidates.add(String(correctAnswer));
+
+        const nearby = [num + 1, num - 1, num + 2, num * 2, Math.max(1, Math.round(num / 2))];
+        nearby.forEach(n => {
+            if (n > 0) candidates.add(String(n));
+        });
+
+        return this._fillChoices(correctAnswer, Array.from(candidates));
+    }
+
+    _relatedPool(answer, topic = '', question = '') {
+        const polygons = ['Triangle', 'Square', 'Pentagon', 'Hexagon', 'Heptagon', 'Octagon', 'Nonagon', 'Decagon'];
+        const numberWords = ['Zero', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten'];
+        const mathSymbols = ['+', '-', '×', '÷', '=', '≠', '<', '>', '≤', '≥', '√', 'π', '%', '∞', '∑', '∠', 'Δ'];
+        const specialPi = ['3.14', '22/7', '3.14159', '3'];
+
+        const lowerTopic = (topic || '').toLowerCase();
+        const lowerQ = (question || '').toLowerCase();
+
+        if (answer === 'pi') {
+            return specialPi;
+        }
+
+        if (lowerTopic.includes('shape') || lowerTopic.includes('side') || lowerTopic.includes('gon') || polygons.some(p => p.toLowerCase() === answer)) {
+            return polygons;
+        }
+
+        if (numberWords.some(w => w.toLowerCase() === answer)) {
+            return numberWords;
+        }
+
+        if (mathSymbols.some(sym => sym.toLowerCase() === answer || lowerTopic.includes(sym.toLowerCase()) || lowerQ.includes(sym.toLowerCase()))) {
+            return mathSymbols;
+        }
+
+        // Generic but math-leaning pool
+        return ['Increase', 'Decrease', 'Stay the same', 'Double', 'Half', 'Not sure'];
+    }
+
+    _fillChoices(correctAnswer, pool) {
+        const normalizedCorrect = this._normalizeAnswer(correctAnswer);
+        const seen = new Set();
+        const picks = [];
+
+        const pushChoice = (choice) => {
+            const normalized = this._normalizeAnswer(choice);
+            if (seen.has(normalized)) return;
+            seen.add(normalized);
+            picks.push(String(choice));
+        };
+
+        pushChoice(correctAnswer);
+
+        (pool || []).forEach(opt => {
+            if (picks.length >= 4) return;
+            if (this._normalizeAnswer(opt) === normalizedCorrect) return;
+            pushChoice(opt);
+        });
+
+        const fallback = ['Not sure', 'None of these', 'All of the above', 'Need more info'];
+        fallback.forEach(opt => {
+            if (picks.length >= 4) return;
+            if (this._normalizeAnswer(opt) === normalizedCorrect) return;
+            pushChoice(opt);
+        });
+
+        return picks.slice(0, 4);
     }
 
     /**

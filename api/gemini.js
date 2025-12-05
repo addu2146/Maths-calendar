@@ -16,12 +16,21 @@ module.exports = async function handler(req, res) {
     const body = req.body || {};
     const { type = 'explain', topic = 'the topic', question = '', day = 'day', month = 'month' } = body;
     const finalPrompt = buildPrompt(type, topic, question, day, month);
-    
-    // Hardcoded API key for simplicity
-    const apiKey = 'AIzaSyDHC3bh9eKp7cw1tAG204-3fY8v4j829Pc';
+
+    // Prefer env var; fall back to legacy key for local demo
+    const apiKey = process.env.GEMINI_API_KEY || 'AIzaSyDHC3bh9eKp7cw1tAG204-3fY8v4j829Pc';
+    const model = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
+
+    if (!apiKey) {
+        return res.status(200).json({
+            content: getFallbackContent(type, topic),
+            live: false,
+            fallbackReason: 'Missing GEMINI_API_KEY'
+        });
+    }
 
     try {
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
