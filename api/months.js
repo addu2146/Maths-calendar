@@ -1,4 +1,4 @@
-import { DEFAULT_DATA, DEFAULT_MONTHS } from '../src/js/data.js';
+import { DEFAULT_DATA, DEFAULT_MONTHS } from '../public/js/data.js';
 
 export default function handler(req, res) {
     res.setHeader('Content-Type', 'application/json');
